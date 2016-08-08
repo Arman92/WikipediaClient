@@ -3,7 +3,6 @@ package com.wikipediaclient;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -19,23 +18,16 @@ import android.view.MenuItem;
 import android.widget.AdapterView;
 import android.widget.TextView;
 
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.internal.LinkedTreeMap;
 import com.rey.material.widget.ProgressView;
 import com.wikipediaclient.entities.json.google.suggestion.GoogleSuggestion;
 import com.wikipediaclient.entities.json.google.suggestion.Item;
-import com.wikipediaclient.entities.json.wiki.article.ArticleDetails;
-import com.wikipediaclient.entities.json.wiki.imgdetails.WikiImageDetails;
 import com.wikipediaclient.network.GoogleEndpoint;
 import com.wikipediaclient.network.WikipediaEndpoint;
 import com.wikipediaclient.ui.CArrayAdapter;
 import com.wikipediaclient.ui.TintAutoComplete;
-
-import org.w3c.dom.Text;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -77,9 +69,6 @@ public class MainActivity extends AppCompatActivity {
     @BindView(R.id.toolbar)
     Toolbar toolbar;
 
-    @BindView(R.id.fab)
-    FloatingActionButton fab;
-
     @BindView(R.id.progress_search_criteria)
     ProgressView progress_circular_search;
 
@@ -105,12 +94,11 @@ public class MainActivity extends AppCompatActivity {
         ButterKnife.bind(this);
         setSupportActionBar(toolbar);
 
-
+        // initialize retrofit object
         wikiRetrofit = new Retrofit.Builder()
                 .baseUrl(WIKI_URL)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
-
         wikipediaService =
                 wikiRetrofit.create(WikipediaEndpoint.class);
 
@@ -123,11 +111,12 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-
+        // init the autocomplete textview (tac_search_criteria) with an empty listed array adapter
         List<CArrayAdapter.AdapterItem> items = new ArrayList<>();
         CArrayAdapter arrayAdapter = new CArrayAdapter(this, R.layout.listitem_search_result, items);
         tac_search_criteria.setAdapter(arrayAdapter);
 
+        // add ui listeners
         addUiListeners();
     }
 
@@ -154,20 +143,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void addUiListeners() {
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
-
+        // triggers when user selects an item from suggestion list
         tac_search_criteria.setOnItemClickListener(new AdapterView.OnItemClickListener()
         {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
                 final String searchCriteria = tac_search_criteria.getText().toString();
 
+                // we don't whant to search for criteria less than 3 character
                 if (searchCriteria.length() > 3)
                 {
                     searchAndShowArticleDetails(searchCriteria);
@@ -286,6 +269,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void searchAndShowArticleDetails(String searchCriteria)
     {
+        // show loading progress
         image_result.setVisibility(View.INVISIBLE);
         progress_img.setVisibility(View.VISIBLE);
         progress_img.start();
@@ -298,6 +282,9 @@ public class MainActivity extends AppCompatActivity {
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                 int statusCode = response.code();
                 try {
+                    // The response from Wikipedia API is a dynamic Json, so we can't use
+                    // automatic deserialization to predefined object types,
+                    // we need to parse the json manually
                     String body = response.body().string();
                     JsonElement jelement = new JsonParser().parse(body);
                     JsonObject  jobject = jelement.getAsJsonObject();
@@ -310,6 +297,7 @@ public class MainActivity extends AppCompatActivity {
                         Log.i(TAG, "title: " + jobject.get("title").getAsString());
                         Log.i(TAG, "extract: " + jobject.get("extract").getAsString());
 
+                        // show article detail on UI:
                         txtview_article_title.setText(jobject.get("title").getAsString());
                         txtview_article_abstract.setText(Html.fromHtml(jobject.get("extract").getAsString()));
 
@@ -341,6 +329,9 @@ public class MainActivity extends AppCompatActivity {
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                 int statusCode = response.code();
                 try {
+                    // The response from Wikipedia API is a dynamic Json, so we can't use
+                    // automatic deserialization to predefined object types,
+                    // we need to parse the json manually
                     String body = response.body().string();
                     JsonElement jelement = new JsonParser().parse(body);
                     JsonObject  jobject = jelement.getAsJsonObject();
@@ -353,6 +344,7 @@ public class MainActivity extends AppCompatActivity {
 
                         jobject = (JsonObject)jobject.get("thumbnail");
 
+                        // this is the actual image url that we are looking for
                         downloadAndShowImage(jobject.get("original").getAsString());
 
                         // we only need the first elemnt
@@ -376,6 +368,7 @@ public class MainActivity extends AppCompatActivity {
     {
         Log.i(TAG, "Downloading image: " + imgUrl);
 
+        // downloading the article image asynchronously and then show on UI
         OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder().url(imgUrl)
                 .build();
@@ -408,7 +401,6 @@ public class MainActivity extends AppCompatActivity {
                         image_result.setVisibility(View.VISIBLE);
                         image_result.setImageBitmap(bitmap);
 
-                        image_result.setVisibility(View.VISIBLE);
                         progress_img.setVisibility(View.INVISIBLE);
                         progress_img.stop();
                     }
