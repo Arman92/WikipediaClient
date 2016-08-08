@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">WikipediaClient</string>
+    <string name="action_settings">Settings</string>
+</resources>
