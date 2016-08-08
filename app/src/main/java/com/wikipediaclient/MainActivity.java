@@ -19,9 +19,10 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.http.GET;
 import retrofit2.http.Headers;
 import retrofit2.http.Path;
+import retrofit2.http.Query;
 
 public class MainActivity extends AppCompatActivity {
-    public static final String BASE_URL = "https://en.wikipedia.org/w/api.php?action=query&format=json";
+    public static final String BASE_URL = "https://en.wikipedia.org/w/api.php/";
 
     public interface MyApiEndpointInterface {
         // Request method and URL specified in the annotation
@@ -32,8 +33,8 @@ public class MainActivity extends AppCompatActivity {
                 "Content-Type: application/json",
                 "User-Agent: Wikipedia-Client-App"
         })
-        @GET("&titles={filename}&prop=imageinfo&iilimit=50&iiprop=url")
-        Call<WikiImageDetails> getImageDetails(@Path("filename") String fileName);
+        @GET("?action=query&format=json&prop=imageinfo&iilimit=50&iiprop=url")
+        Call<WikiImageDetails> getImageDetails(@Query("titles") String fileName);
     }
 
     @Override
