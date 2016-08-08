@@ -170,7 +170,7 @@ public class CArrayAdapter extends ArrayAdapter<CArrayAdapter.AdapterItem> {
             }
 
 
-            return "هیچی";
+            return "Not found!";
         }
         @Override
         protected FilterResults performFiltering(CharSequence constraint) {
@@ -216,14 +216,23 @@ public class CArrayAdapter extends ArrayAdapter<CArrayAdapter.AdapterItem> {
     public void clear() {
         synchronized (mLock) {
             list.clear();
+            itemsAll.clear();
+            suggestions.clear();
         }
         if (mNotifyOnChange) notifyDataSetChanged();
+    }
+
+    public void addItem(AdapterItem item)
+    {
+        list.add(item);
+        itemsAll.add(item);
     }
 
     public void add(AdapterItem object) {
         synchronized (mLock) {
             if (list != null) {
                 list.add(object);
+                itemsAll.add(object);
             }
         }
         if (mNotifyOnChange) notifyDataSetChanged();

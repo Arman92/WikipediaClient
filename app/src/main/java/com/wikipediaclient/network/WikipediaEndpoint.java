@@ -15,7 +15,8 @@ public interface WikipediaEndpoint {
     @Headers({
             "Accept: application/json",
             "Content-Type: application/json",
-            "User-Agent: Wikipedia-Client-App"
+            "User-Agent: Wikipedia-Client-App",
+            "Accept-Encoding: gzip"
     })
     @GET("?action=query&format=json&prop=imageinfo&iilimit=50&iiprop=url")
     Call<WikiImageDetails> getImageDetails(@Query("titles") String fileName);
