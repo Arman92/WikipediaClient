@@ -231,6 +231,12 @@ public class CArrayAdapter extends ArrayAdapter<CArrayAdapter.AdapterItem> {
     public void add(AdapterItem object) {
         synchronized (mLock) {
             if (list != null) {
+//                // prevent duplicate items
+//                for (AdapterItem item : list)
+//                {
+//                    if (item.Title.equals(((AdapterItem)item).Title))
+//                        return;
+//                }
                 list.add(object);
                 itemsAll.add(object);
             }

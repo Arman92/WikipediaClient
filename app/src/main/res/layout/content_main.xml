@@ -24,7 +24,7 @@
         android:layout_height="wrap_content" />
 
     <com.rey.material.widget.ProgressView
-        android:id="@+id/progress_circular_search"
+        android:id="@+id/progress_search_criteria"
         android:layout_width="32dp"
         android:layout_height="32dp"
         android:layout_gravity="center_horizontal"
@@ -35,17 +35,57 @@
         android:layout_marginTop="7dp"
         android:visibility="visible" />
 
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            >
+
     <de.hdodenhof.circleimageview.CircleImageView
         xmlns:app="http://schemas.android.com/apk/res-auto"
         android:id="@+id/image_result"
-        android:layout_width="96dp"
-        android:layout_height="96dp"
+        android:layout_width="150dp"
+        android:layout_height="150dp"
         android:src="@android:drawable/ic_media_play"
         app:civ_border_width="2dp"
         app:civ_border_color="#FF000000"
         android:layout_gravity="center_horizontal"
-        android:layout_marginTop="30dp"
+        android:layout_marginTop="10dp"
+        android:visibility="invisible"
         />
+    <com.rey.material.widget.ProgressView
+        android:id="@+id/progress_img"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="center_horizontal"
+        app:pv_autostart ="false"
+        app:pv_circular="true"
+        app:pv_progressStyle="@style/ColorsCircularProgressDrawableStyle"
+        app:pv_progressMode="indeterminate"
+        android:layout_marginTop="7dp"
+        android:visibility="invisible"
+        />
+<TextView
+    android:id="@+id/txtview_article_title"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:textSize="35sp"
+    android:textColor="@color/colorPrimaryDark"
+    android:layout_marginTop="20dp"
+    android:layout_marginBottom="20dp"
+    />
+    <TextView
+        android:id="@+id/txtview_article_abstract"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/colorPrimaryText" />
 
+    </LinearLayout>
+
+</ScrollView>
 
 </LinearLayout>

@@ -1,51 +1,63 @@
 package com.wikipediaclient;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.Editable;
+import android.text.Html;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.AdapterView;
+import android.widget.TextView;
 
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.internal.LinkedTreeMap;
 import com.rey.material.widget.ProgressView;
-import com.wikipediaclient.entities.json.GoogleSuggestion;
-import com.wikipediaclient.entities.json.Item;
-import com.wikipediaclient.entities.json.WikiImageDetails;
+import com.wikipediaclient.entities.json.google.suggestion.GoogleSuggestion;
+import com.wikipediaclient.entities.json.google.suggestion.Item;
+import com.wikipediaclient.entities.json.wiki.article.ArticleDetails;
+import com.wikipediaclient.entities.json.wiki.imgdetails.WikiImageDetails;
 import com.wikipediaclient.network.GoogleEndpoint;
 import com.wikipediaclient.network.WikipediaEndpoint;
 import com.wikipediaclient.ui.CArrayAdapter;
 import com.wikipediaclient.ui.TintAutoComplete;
 
+import org.w3c.dom.Text;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import de.hdodenhof.circleimageview.CircleImageView;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
-import retrofit2.http.GET;
-import retrofit2.http.Headers;
-import retrofit2.http.Path;
-import retrofit2.http.Query;
 
 import static butterknife.ButterKnife.findById;
 
@@ -68,8 +80,17 @@ public class MainActivity extends AppCompatActivity {
     @BindView(R.id.fab)
     FloatingActionButton fab;
 
-    @BindView(R.id.progress_circular_search)
+    @BindView(R.id.progress_search_criteria)
     ProgressView progress_circular_search;
+
+    @BindView(R.id.progress_img)
+    ProgressView progress_img;
+
+    @BindView(R.id.txtview_article_abstract)
+    TextView txtview_article_abstract;
+
+    @BindView(R.id.txtview_article_title)
+    TextView txtview_article_title;
 
     WikipediaEndpoint wikipediaService;
     GoogleEndpoint googleService;
@@ -89,6 +110,7 @@ public class MainActivity extends AppCompatActivity {
                 .baseUrl(WIKI_URL)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
+
         wikipediaService =
                 wikiRetrofit.create(WikipediaEndpoint.class);
 
@@ -99,19 +121,7 @@ public class MainActivity extends AppCompatActivity {
         googleService =
                 googleRetrofit.create(GoogleEndpoint.class);
 
-        Call<WikiImageDetails> call = wikipediaService.getImageDetails("File:Albert Einstein Head.jpg");
-        call.enqueue(new Callback<WikiImageDetails>() {
-            @Override
-            public void onResponse(Call<WikiImageDetails> call, Response<WikiImageDetails> response) {
-                int statusCode = response.code();
-                WikiImageDetails wikiImageDetails = response.body();
-            }
 
-            @Override
-            public void onFailure(Call<WikiImageDetails> call, Throwable t) {
-                t.printStackTrace();
-            }
-        });
 
 
         List<CArrayAdapter.AdapterItem> items = new ArrayList<>();
@@ -152,12 +162,16 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        tac_search_criteria.setOnClickListener(new View.OnClickListener() {
+        tac_search_criteria.setOnItemClickListener(new AdapterView.OnItemClickListener()
+        {
             @Override
-            public void onClick(View view) {
-                if (tac_search_criteria.getText().length() > 3)
-                {
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                final String searchCriteria = tac_search_criteria.getText().toString();
 
+                if (searchCriteria.length() > 3)
+                {
+                    searchAndShowArticleDetails(searchCriteria);
+                    searchForBestArticleImage(searchCriteria);
                 }
             }
         });
@@ -173,15 +187,12 @@ public class MainActivity extends AppCompatActivity {
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
             }
 
-
             private Timer timer = new Timer();
             private final long DELAY = 1000; // in ms
             // this flag helps preventing multiple simultaneous timers running
             AtomicBoolean isTimerRunning = new AtomicBoolean(false);
             @Override
             public void afterTextChanged(Editable editable) {
-                // show a progress view in UI
-                showProgressView();
 
                 // We don't want to run a new query everytime user types a single char,
                 // so instead we trigger a timer and wait for DELAY millisecs, if any new requests came through,
@@ -194,8 +205,11 @@ public class MainActivity extends AppCompatActivity {
                             mActivity.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
+                                    // show a progress view in UI
+                                    showProgressView();
                                     isTimerRunning.set(true);
 
+                                    Log.i(TAG, "Loading suggestions for " + tac_search_criteria.getText());
                                     // create the request for current search criteria
                                     Call<GoogleSuggestion> call = googleService.getSuggestions(
                                             tac_search_criteria.getText().toString());
@@ -264,6 +278,141 @@ public class MainActivity extends AppCompatActivity {
                     }, DELAY);
                 }
 
+            }
+        });
+    }
+
+
+
+    private void searchAndShowArticleDetails(String searchCriteria)
+    {
+        image_result.setVisibility(View.INVISIBLE);
+        progress_img.setVisibility(View.VISIBLE);
+        progress_img.start();
+
+        Log.i(TAG, "Loading article details for criteria " + searchCriteria);
+
+        Call<ResponseBody> articleDetailsCall = wikipediaService.getArticleDetails(searchCriteria);
+        articleDetailsCall.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                int statusCode = response.code();
+                try {
+                    String body = response.body().string();
+                    JsonElement jelement = new JsonParser().parse(body);
+                    JsonObject  jobject = jelement.getAsJsonObject();
+                    jobject = (JsonObject)jobject.get("query");
+                    jobject = (JsonObject)jobject.get("pages");
+                    Set<Map.Entry<String, JsonElement>> entries = jobject.entrySet();//will return members of your object
+                    for (Map.Entry<String, JsonElement> entry: entries) {
+                        jobject = (JsonObject)jobject.get(entry.getKey());
+
+                        Log.i(TAG, "title: " + jobject.get("title").getAsString());
+                        Log.i(TAG, "extract: " + jobject.get("extract").getAsString());
+
+                        txtview_article_title.setText(jobject.get("title").getAsString());
+                        txtview_article_abstract.setText(Html.fromHtml(jobject.get("extract").getAsString()));
+
+                        // we only need the first elemnt
+                        break;
+                    }
+
+                    Log.i(TAG, "code: " + statusCode);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                t.printStackTrace();
+            }
+        });
+
+    }
+
+    private void searchForBestArticleImage(final String searchCriteria)
+    {
+        Log.i(TAG, "Searching for best image url for criteria: " + searchCriteria);
+
+        Call<ResponseBody> imagesCall = wikipediaService.getImages(searchCriteria);
+        imagesCall.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                int statusCode = response.code();
+                try {
+                    String body = response.body().string();
+                    JsonElement jelement = new JsonParser().parse(body);
+                    JsonObject  jobject = jelement.getAsJsonObject();
+                    jobject = (JsonObject)jobject.get("query");
+                    jobject = (JsonObject)jobject.get("pages");
+                    // will return members of "pages" object
+                    Set<Map.Entry<String, JsonElement>> entries = jobject.entrySet();
+                    for (Map.Entry<String, JsonElement> entry: entries) {
+                        jobject = (JsonObject)jobject.get(entry.getKey());
+
+                        jobject = (JsonObject)jobject.get("thumbnail");
+
+                        downloadAndShowImage(jobject.get("original").getAsString());
+
+                        // we only need the first elemnt
+                        break;
+                    }
+
+                    Log.i(TAG, "code: " + statusCode);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                t.printStackTrace();
+            }
+        });
+    }
+
+    private void downloadAndShowImage(String imgUrl)
+    {
+        Log.i(TAG, "Downloading image: " + imgUrl);
+
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder().url(imgUrl)
+                .build();
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, IOException e) {
+                mActivity.runOnUiThread(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                Snackbar.make(image_result, "Error loading image", Snackbar.LENGTH_SHORT)
+                                        .setAction("Action", null).show();
+
+                                image_result.setVisibility(View.INVISIBLE);
+                                progress_img.setVisibility(View.INVISIBLE);
+                                progress_img.stop();
+                            }
+                        }
+                );
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, final okhttp3.Response response) throws IOException {
+                mActivity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        InputStream inputStream = response.body().byteStream();
+                        Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+
+                        image_result.setVisibility(View.VISIBLE);
+                        image_result.setImageBitmap(bitmap);
+
+                        image_result.setVisibility(View.VISIBLE);
+                        progress_img.setVisibility(View.INVISIBLE);
+                        progress_img.stop();
+                    }
+                });
             }
         });
     }

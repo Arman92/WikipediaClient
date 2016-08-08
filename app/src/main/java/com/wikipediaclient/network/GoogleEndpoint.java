@@ -1,7 +1,7 @@
 package com.wikipediaclient.network;
 
-import com.wikipediaclient.entities.json.GoogleSuggestion;
-import com.wikipediaclient.entities.json.WikiImageDetails;
+
+import com.wikipediaclient.entities.json.google.suggestion.GoogleSuggestion;
 
 import okhttp3.ResponseBody;
 import retrofit2.Call;
