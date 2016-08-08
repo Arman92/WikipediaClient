@@ -1,4 +1,4 @@
-package arman.com.wikipediaclient;
+package com.wikipediaclient;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;

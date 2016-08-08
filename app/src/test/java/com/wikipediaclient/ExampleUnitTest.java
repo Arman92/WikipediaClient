@@ -1,4 +1,4 @@
-package arman.com.wikipediaclient;
+package com.wikipediaclient;
 
 import org.junit.Test;
 
