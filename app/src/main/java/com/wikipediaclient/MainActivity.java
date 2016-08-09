@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -12,12 +11,14 @@ import android.text.Editable;
 import android.text.Html;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.AdapterView;
 import android.widget.TextView;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -25,6 +26,7 @@ import com.rey.material.widget.Button;
 import com.rey.material.widget.ProgressView;
 import com.wikipediaclient.entities.json.google.suggestion.GoogleSuggestion;
 import com.wikipediaclient.entities.json.google.suggestion.Item;
+import com.wikipediaclient.entities.json.wiki.imgdetails.WikiImageDetails;
 import com.wikipediaclient.network.GoogleEndpoint;
 import com.wikipediaclient.network.WikipediaEndpoint;
 import com.wikipediaclient.ui.CArrayAdapter;
@@ -147,12 +149,36 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void addUiListeners() {
+
+        tac_search_criteria.setImeActionLabel("Search", KeyEvent.KEYCODE_ENTER);
+
+        tac_search_criteria.setOnKeyListener(new View.OnKeyListener() {
+            public boolean onKey(View v, int keyCode, KeyEvent event) {
+                // If the event is a key-down event on the "enter" button
+                if ((event.getAction() == KeyEvent.ACTION_DOWN) &&
+                        (keyCode == KeyEvent.KEYCODE_ENTER)) {
+
+                    String searchCriteria = tac_search_criteria.getText().toString();
+
+                    // we don't wnat to search for criteria less than 3 character
+                    if (searchCriteria.length() > 3)
+                    {
+                        searchAndShowArticleDetails(searchCriteria);
+                        searchForBestArticleImage(searchCriteria);
+                    }
+
+                    return true;
+                }
+                return false;
+            }
+        });
+
         btn_search.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 String searchCriteria = tac_search_criteria.getText().toString();
 
-                // we don't whant to search for criteria less than 3 character
+                // we don't want to search for criteria less than 3 character
                 if (searchCriteria.length() > 3)
                 {
                     searchAndShowArticleDetails(searchCriteria);
@@ -169,7 +195,7 @@ public class MainActivity extends AppCompatActivity {
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
                 String searchCriteria = tac_search_criteria.getText().toString();
 
-                // we don't whant to search for criteria less than 3 character
+                // we don't want to search for criteria less than 3 character
                 if (searchCriteria.length() > 3)
                 {
                     searchAndShowArticleDetails(searchCriteria);
@@ -208,7 +234,7 @@ public class MainActivity extends AppCompatActivity {
                                 @Override
                                 public void run() {
                                     // show a progress view in UI
-                                    showProgressView();
+                                    showSuggestionProgressView();
                                     isTimerRunning.set(true);
 
                                     Log.i(TAG, "Loading suggestions for " + tac_search_criteria.getText());
@@ -261,7 +287,7 @@ public class MainActivity extends AppCompatActivity {
 
                                             // let another search request to run
                                             isTimerRunning.set(false);
-                                            hideProgressView();
+                                            hideSuggestionProgressView();
                                         }
 
                                         @Override
@@ -271,7 +297,7 @@ public class MainActivity extends AppCompatActivity {
 
                                             // let another search request to run
                                             isTimerRunning.set(false);
-                                            hideProgressView();
+                                            hideSuggestionProgressView();
                                         }
                                     });
                                 }
@@ -289,9 +315,7 @@ public class MainActivity extends AppCompatActivity {
     private void searchAndShowArticleDetails(String searchCriteria)
     {
         // show loading progress
-        image_result.setVisibility(View.INVISIBLE);
-        progress_img.setVisibility(View.VISIBLE);
-        progress_img.start();
+        showImageProgressView();
 
         Log.i(TAG, "Loading article details for criteria " + searchCriteria);
 
@@ -340,7 +364,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void searchForBestArticleImage(final String searchCriteria)
     {
-        Log.i(TAG, "Searching for best image url for criteria: " + searchCriteria);
+        Log.i(TAG, "Searching for original article image url for criteria: " + searchCriteria);
 
         Call<ResponseBody> imagesCall = wikipediaService.getImages(searchCriteria);
         imagesCall.enqueue(new Callback<ResponseBody>() {
@@ -373,12 +397,101 @@ public class MainActivity extends AppCompatActivity {
                     Log.i(TAG, "code: " + statusCode);
                 } catch (Exception e) {
                     e.printStackTrace();
+
+                    // Oops, we didn't find the article main page pic,
+                    // try search in a more general way:
+                    searchForAllArticleImages(searchCriteria);
                 }
             }
 
             @Override
             public void onFailure(Call<ResponseBody> call, Throwable t) {
                 t.printStackTrace();
+
+                hideImageProgressView(false);
+            }
+        });
+    }
+
+
+    private void searchForAllArticleImages(final String searchCriteria) {
+        Log.i(TAG, "Searching for best image url for criteria: " + searchCriteria);
+        Call<ResponseBody> imagesCall = wikipediaService.getImages(searchCriteria);
+        imagesCall.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                int statusCode = response.code();
+                try {
+                    String body = response.body().string();
+                    JsonElement jelement = new JsonParser().parse(body);
+                    JsonObject jobject = jelement.getAsJsonObject();
+                    jobject = (JsonObject) jobject.get("query");
+                    jobject = (JsonObject) jobject.get("pages");
+                    // will return members of "pages" object
+                    Set<Map.Entry<String, JsonElement>> entries = jobject.entrySet();
+                    for (Map.Entry<String, JsonElement> entry : entries) {
+                        jobject = (JsonObject) jobject.get(entry.getKey());
+                        JsonArray imgsJsonArray = (JsonArray) jobject.get("images");
+
+                        String bestImgTitle = "";
+                        for (int i = 0; i < imgsJsonArray.size(); i++) {
+                            String imgTitle = imgsJsonArray.get(i).getAsJsonObject()
+                                    .get("title").getAsString();
+                            // The images that contain the search criteria are more probably
+                            // relevant to the search subject
+                            if (imgTitle.toLowerCase().contains(searchCriteria.toLowerCase())
+                                    && !imgTitle.endsWith("svg")) {
+                                Log.i(TAG, "Img title: " + imgTitle);
+                                bestImgTitle = imgTitle;
+                                break;
+                            }
+                        }
+                        // we didn't find what we want, use the first image
+                        if (bestImgTitle.equals("")) {
+                            bestImgTitle = imgsJsonArray.get(0).getAsJsonObject().get("title").getAsString();
+                        }
+                        // Ok we got the image title, but it's not an http URL,
+                        // we need to obtain the url and then show it on UI
+                        searchAndGetImageUrl(bestImgTitle);
+
+                        // we only need the first elemnt
+                        break;
+                    }
+
+                    Log.i(TAG, "code: " + statusCode);
+                } catch (Exception e) {
+                    e.printStackTrace();
+
+                    hideImageProgressView(false);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                t.printStackTrace();
+
+                hideImageProgressView(false);
+            }
+        });
+
+    }
+
+    private void searchAndGetImageUrl(String imgTitle)
+    {
+        Call<WikiImageDetails> call = wikipediaService.getImageDetails(imgTitle);
+        call.enqueue(new Callback<WikiImageDetails>() {
+            @Override
+            public void onResponse(Call<WikiImageDetails> call, Response<WikiImageDetails> response) {
+                WikiImageDetails wikiImageDetails = response.body();
+                String imgUrl = wikiImageDetails.getQuery().getPages().get1().getImageinfo().get(0).getUrl();
+                downloadAndShowImage(imgUrl);
+            }
+
+            @Override
+            public void onFailure(Call<WikiImageDetails> call, Throwable t) {
+                t.printStackTrace();
+
+                hideImageProgressView(false);
             }
         });
     }
@@ -401,9 +514,7 @@ public class MainActivity extends AppCompatActivity {
                                 Snackbar.make(image_result, "Error loading image", Snackbar.LENGTH_SHORT)
                                         .setAction("Action", null).show();
 
-                                image_result.setVisibility(View.INVISIBLE);
-                                progress_img.setVisibility(View.INVISIBLE);
-                                progress_img.stop();
+                                hideImageProgressView(false);
                             }
                         }
                 );
@@ -417,24 +528,40 @@ public class MainActivity extends AppCompatActivity {
                         InputStream inputStream = response.body().byteStream();
                         Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
 
-                        image_result.setVisibility(View.VISIBLE);
                         image_result.setImageBitmap(bitmap);
 
-                        progress_img.setVisibility(View.INVISIBLE);
-                        progress_img.stop();
+                        hideImageProgressView(true);
                     }
                 });
             }
         });
     }
 
-    private void showProgressView()
+    private void showImageProgressView()
+    {
+        image_result.setVisibility(View.INVISIBLE);
+        progress_img.setVisibility(View.VISIBLE);
+        progress_img.start();
+    }
+
+    private void hideImageProgressView(boolean showImage)
+    {
+        if (showImage)
+            image_result.setVisibility(View.VISIBLE);
+        else
+            image_result.setVisibility(View.INVISIBLE);
+
+        progress_img.setVisibility(View.INVISIBLE);
+        progress_img.stop();
+    }
+
+    private void showSuggestionProgressView()
     {
         progress_circular_search.setVisibility(View.VISIBLE);
         progress_circular_search.start();
     }
 
-    private void hideProgressView()
+    private void hideSuggestionProgressView()
     {
         progress_circular_search.setVisibility(View.INVISIBLE);
         progress_circular_search.stop();
