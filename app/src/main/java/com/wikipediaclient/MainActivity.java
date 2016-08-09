@@ -21,6 +21,7 @@ import android.widget.TextView;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.rey.material.widget.Button;
 import com.rey.material.widget.ProgressView;
 import com.wikipediaclient.entities.json.google.suggestion.GoogleSuggestion;
 import com.wikipediaclient.entities.json.google.suggestion.Item;
@@ -80,6 +81,9 @@ public class MainActivity extends AppCompatActivity {
 
     @BindView(R.id.txtview_article_title)
     TextView txtview_article_title;
+
+    @BindView(R.id.btn_search)
+    Button btn_search;
 
     WikipediaEndpoint wikipediaService;
     GoogleEndpoint googleService;
@@ -143,12 +147,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void addUiListeners() {
+        btn_search.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String searchCriteria = tac_search_criteria.getText().toString();
+
+                // we don't whant to search for criteria less than 3 character
+                if (searchCriteria.length() > 3)
+                {
+                    searchAndShowArticleDetails(searchCriteria);
+                    searchForBestArticleImage(searchCriteria);
+                }
+            }
+        });
+
+
         // triggers when user selects an item from suggestion list
         tac_search_criteria.setOnItemClickListener(new AdapterView.OnItemClickListener()
         {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                final String searchCriteria = tac_search_criteria.getText().toString();
+                String searchCriteria = tac_search_criteria.getText().toString();
 
                 // we don't whant to search for criteria less than 3 character
                 if (searchCriteria.length() > 3)

@@ -18,11 +18,35 @@
         android:layout_height="wrap_content"
         android:text="Search in Wikipedia below:"/>
 
-    <com.wikipediaclient.ui.TintAutoComplete
-        android:id="@+id/tac_search_criteria"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
 
+        <com.wikipediaclient.ui.TintAutoComplete
+            android:id="@+id/tac_search_criteria"
+            android:layout_width="0dp"
+            android:layout_weight="8"
+            android:layout_height="wrap_content" />
+        
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="0.5"/>
+
+        <com.rey.material.widget.Button
+            style="@style/LightRaiseColorButtonRippleStyle"
+            android:id="@+id/btn_search"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:textColor="#FFFFFFFF"
+            android:textAppearance="@style/Base.TextAppearance.AppCompat.Button"
+            android:text="Search"
+            android:textSize="14sp"
+            />
+
+    </LinearLayout>
     <com.rey.material.widget.ProgressView
         android:id="@+id/progress_search_criteria"
         android:layout_width="32dp"
